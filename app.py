@@ -7,6 +7,65 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from werkzeug.utils import secure_filename
 import cv2
 
+emotions = {0: 'Angry', 1: 'Disgust', 2: 'Fear', 3: 'Happy', 4: 'Sad', 5: 'Surpris', 6: 'Neutral'}
+
+model, graph = None, None
+
+
+def load_model():
+    """
+
+    :return:
+    """
+    import tensorflow as tf
+    global model, graph
+    from keras.models import Sequential
+    from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+
+    model = Sequential()
+    model.add(Conv2D(filters=2, kernel_size=2, padding='same', activation='relu',
+                     input_shape=(48, 48, 1)))
+    model.add(MaxPooling2D(pool_size=2))
+    model.add(Dropout(0.2))
+    model.add(Conv2D(filters=4, kernel_size=2, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=2))
+    model.add(Dropout(0.2))
+    model.add(Conv2D(filters=8, kernel_size=2, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=2))
+    model.add(Dropout(0.2))
+    model.add(Conv2D(filters=16, kernel_size=2, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=2))
+    model.add(Dropout(0.2))
+    model.add(Conv2D(filters=32, kernel_size=2, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=2))
+    model.add(Dropout(0.2))
+    model.add(Flatten())
+    model.add(Dense(300, activation='relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(7, activation='softmax'))
+
+    model.summary()
+    model.compile(loss='categorical_crossentropy', optimizer='rmsprop',
+                  metrics=['accuracy'])
+    # load the weights that yielded the best validation accuracy
+    model.load_weights(os.path.join(APP_ROOT, 'weights.hdf5'))
+    graph = tf.get_default_graph()
+
+
+def predict_emotion(img):
+    """
+
+    :param img:
+    :return:
+    """
+    # import tensorflow as tf
+    # graph = tf.get_default_graph()
+    with graph.as_default():
+        possibilities = (model.predict(img)).tolist()
+    emotion_index = possibilities[0].index(max(possibilities[0]))
+    return emotions[emotion_index]
+
+
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(APP_ROOT, 'static', 'uploads')
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
@@ -14,6 +73,7 @@ ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SECRET_KEY'] = b'_5#y2L"F4Q8z\n\xec]/'
+app.model = load_model()
 
 
 def remove_old_imgs(delta=1):
@@ -100,50 +160,21 @@ def detect_faces(filename):
 
     # find faces in image
     faces = face_cascade.detectMultiScale(gray)
+    font = cv2.FONT_HERSHEY_SIMPLEX
     # get bounding box for each detected face
     for (x, y, w, h) in faces:
+        roi = gray[y:y + h, x:x + w]
+        resized = cv2.resize(roi, (48, 48))
+        sample = resized.reshape(1, 48, 48, 1)
+        emotion = predict_emotion(sample)
+        cv2.putText(img, emotion, (x, y), font, 1, (255, 255, 255), 2)
         # add bounding box to color image
         cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 5)
 
     cv2.imwrite(os.path.join(app.config['UPLOAD_FOLDER'], filename), img)
 
 
-def load_model():
-    """
 
-    :return:
-    """
-    from keras.models import Sequential
-    from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-
-    model = Sequential()
-    model.add(Conv2D(filters=2, kernel_size=2, padding='same', activation='relu',
-                     input_shape=(48, 48, 1)))
-    model.add(MaxPooling2D(pool_size=2))
-    model.add(Dropout(0.2))
-    model.add(Conv2D(filters=4, kernel_size=2, padding='same', activation='relu'))
-    model.add(MaxPooling2D(pool_size=2))
-    model.add(Dropout(0.2))
-    model.add(Conv2D(filters=8, kernel_size=2, padding='same', activation='relu'))
-    model.add(MaxPooling2D(pool_size=2))
-    model.add(Dropout(0.2))
-    model.add(Conv2D(filters=16, kernel_size=2, padding='same', activation='relu'))
-    model.add(MaxPooling2D(pool_size=2))
-    model.add(Dropout(0.2))
-    model.add(Conv2D(filters=32, kernel_size=2, padding='same', activation='relu'))
-    model.add(MaxPooling2D(pool_size=2))
-    model.add(Dropout(0.2))
-    model.add(Flatten())
-    model.add(Dense(300, activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(7, activation='softmax'))
-
-    model.summary()
-    model.compile(loss='categorical_crossentropy', optimizer='rmsprop',
-                  metrics=['accuracy'])
-    # load the weights that yielded the best validation accuracy
-    model.load_weights(os.path.join(APP_ROOT, 'weights.hdf5'))
-    return model
 
 
 def guess():
@@ -155,4 +186,5 @@ def guess():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    load_model()
+    app.run(debug=True, threaded=True)
