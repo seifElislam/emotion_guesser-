@@ -7,7 +7,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from werkzeug.utils import secure_filename
 import cv2
 
-emotions = {0: 'Angry', 1: 'Disgust', 2: 'Fear', 3: 'Happy', 4: 'Sad', 5: 'Surpris', 6: 'Neutral'}
+emotions = {0: 'Angry', 1: 'Disgust', 2: 'Fear', 3: 'Happy', 4: 'Sad', 5: 'Surprise', 6: 'Neutral'}
 
 model, graph = None, None
 
@@ -73,7 +73,7 @@ ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SECRET_KEY'] = b'_5#y2L"F4Q8z\n\xec]/'
-app.model = load_model()
+app.load = load_model()
 
 
 def remove_old_imgs(delta=1):
@@ -163,28 +163,19 @@ def detect_faces(filename):
     font = cv2.FONT_HERSHEY_SIMPLEX
     # get bounding box for each detected face
     for (x, y, w, h) in faces:
+        if w < 5:
+            continue
         roi = gray[y:y + h, x:x + w]
         resized = cv2.resize(roi, (48, 48))
         sample = resized.reshape(1, 48, 48, 1)
         emotion = predict_emotion(sample)
-        cv2.putText(img, emotion, (x, y), font, 1, (255, 255, 255), 2)
+        size = int(w/100)
+        cv2.putText(img, emotion, (x, y), font, size, (0, 128, 255), thickness=2)
         # add bounding box to color image
         cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 5)
 
     cv2.imwrite(os.path.join(app.config['UPLOAD_FOLDER'], filename), img)
 
 
-
-
-
-def guess():
-    """
-
-    :return:
-    """
-    pass
-
-
 if __name__ == '__main__':
-    load_model()
     app.run(debug=True, threaded=True)
