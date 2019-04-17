@@ -142,7 +142,7 @@ def load_model():
     model.compile(loss='categorical_crossentropy', optimizer='rmsprop',
                   metrics=['accuracy'])
     # load the weights that yielded the best validation accuracy
-    model.load_weights('weights.hdf5')
+    model.load_weights(os.path.join(APP_ROOT, 'weights.hdf5'))
     return model
 
 
