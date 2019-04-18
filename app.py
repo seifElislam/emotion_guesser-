@@ -145,15 +145,13 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
-@app.route('/detect/<filename>')
-def detect_img(filename):
+@app.route('/about')
+def about_page():
     """
 
-    :param filename:
     :return:
     """
-    detect_faces(filename)
-    return render_template('result.html', img=filename)
+    return render_template('about.html')
 
 
 def detect_faces(filename):
