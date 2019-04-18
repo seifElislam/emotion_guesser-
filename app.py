@@ -3,12 +3,14 @@
 import os
 import datetime
 import time
+import numpy as np
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
 from werkzeug.utils import secure_filename
 import cv2
+import base64
 
-emotions = {0: 'Angry', 1: 'Disgust', 2: 'Fear', 3: 'Happy', 4: 'Sad', 5: 'Surprise', 6: 'Neutral'}
-
+# emotions = {0: 'Angry', 1: 'Disgust', 2: 'Fear', 3: 'Happy', 4: 'Sad', 5: 'Surprise', 6: 'Neutral'}
+emotions = {0: (255, 0, 0), 1: (128, 0, 1), 2: (0, 0, 139), 3: (255, 255, 0), 4: (165, 42, 42), 5: (238, 13, 230), 6: (176, 224, 230)}
 model, graph = None, None
 
 
@@ -120,10 +122,16 @@ def home():
             flash('No selected file')
             return redirect(request.url)
         if file and allowed_file(file.filename):
-            filename = "{}_{}".format(str(time.time()), secure_filename(file.filename))
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            # filename = "{}_{}".format(str(time.time()), secure_filename(file.filename))
+            # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             # return redirect(url_for('uploaded_file', filename=filename))
-            return redirect(url_for('detect_img', filename=filename))
+            image = cv2.imdecode(np.fromstring(file.read(), np.uint8), cv2.IMREAD_UNCHANGED)
+            detected_img = detect_faces_v2(image)
+            image_content = cv2.imencode('.jpg', image)[1].tostring()
+            encoded_image = base64.encodebytes(image_content)
+            base64_img = 'data:image/jpg;base64, ' + str(encoded_image, 'utf-8')
+            return render_template('home.html', img=base64_img)
+            # return redirect(url_for('detect_img', filename=filename))
     return render_template('home.html')
 
 
@@ -175,6 +183,35 @@ def detect_faces(filename):
         cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 5)
 
     cv2.imwrite(os.path.join(app.config['UPLOAD_FOLDER'], filename), img)
+
+
+def detect_faces_v2(img):
+    """
+
+    :param img:
+    :return:
+    """
+    face_cascade = cv2.CascadeClassifier(os.path.join(APP_ROOT, 'haarcascade_frontalface_alt.xml'))
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # find faces in image
+    faces = face_cascade.detectMultiScale(gray)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    # get bounding box for each detected face
+    for (x, y, w, h) in faces:
+        if w < 5:
+            continue
+        roi = gray[y:y + h, x:x + w]
+        resized = cv2.resize(roi, (48, 48))
+        sample = resized.reshape(1, 48, 48, 1)
+        emotion = predict_emotion(sample)
+        # size = int(w/100)
+        # cv2.putText(img, emotion, (x, y), font, size, (0, 128, 255), thickness=2)
+        # add bounding box to color image
+        cv2.rectangle(img, (x, y), (x + w, y + h), emotion, 2)
+
+    # cv2.imwrite(os.path.join(app.config['UPLOAD_FOLDER'], filename), img)
+    return img
 
 
 if __name__ == '__main__':
