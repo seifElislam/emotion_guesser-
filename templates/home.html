@@ -9,7 +9,20 @@
               <p><input type=file name=file>
                  <input type=submit value=Upload>
             </form>
-
+{% if img %}
+<div class="container">
+<div class="px-3 py-3">
+    <img src="static/Sad.png" alt="" style="border:2px solid brown;width: 50px;">
+    <img src="static/Fear.png" alt="" style="border:2px solid darkblue;width: 50px;">
+    <img src="static/Angry.png" alt="" style="border:2px solid red;width: 50px;">
+    <img src="static/Disgust.png" alt="" style="border:2px solid green;width: 50px;">
+    <img src="static/Neutral.png" alt="" style="border:2px solid powderblue;width: 50px;">
+    <img src="static/Happy.png"  alt="" style="border:2px solid yellow;width: 50px;">
+    <img src="static/Surprise.png" alt="" style="border:2px solid violet;width: 50px;">
+</div>
+                <img src="{{ img }}" alt="" class="img-fluid">
+            </div>
+{% endif %}
         </div>
     </div>
 
